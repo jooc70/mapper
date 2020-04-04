@@ -913,27 +913,26 @@ std::unique_ptr<Template> Template::templateForFile(const QString& path, Map* ma
 		} );
 	};
 	
-	std::unique_ptr<Template> t;
-	// Start with placeholder 'if', for consistency in the following macro/if-else sequence
-	if (false)  // NOLINT
-		{} // nothing
 #ifdef MAPPER_USE_GDAL
-	else if (path_ends_with_any_of(GdalTemplate::supportedExtensions()))
-		t = std::make_unique<GdalTemplate>(path, map);
-#endif 
-	else if (path_ends_with_any_of(TemplateImage::supportedExtensions()))
+#  define HANDLED_BY_GDAL(expr) expr
+#else
+#  define HANDLED_BY_GDAL(expr) false
+#endif
+	
+	std::unique_ptr<Template> t;
+	if (path_ends_with_any_of(TemplateImage::supportedExtensions())
+	    && !HANDLED_BY_GDAL(path_ends_with_any_of(GdalTemplate::supportedExtensions())))
 		t = std::make_unique<TemplateImage>(path, map);
 	else if (path_ends_with_any_of(TemplateMap::supportedExtensions()))
 		t = std::make_unique<TemplateMap>(path, map);
-#ifdef MAPPER_USE_GDAL
-	else if (path_ends_with_any_of(OgrTemplate::supportedExtensions()))
-		t = std::make_unique<OgrTemplate>(path, map);
-#endif
-	else if (path_ends_with_any_of(TemplateTrack::supportedExtensions()))
+	else if (path_ends_with_any_of(TemplateTrack::supportedExtensions())
+	         && !HANDLED_BY_GDAL(path_ends_with_any_of(OgrTemplate::supportedExtensions())))
 		t = std::make_unique<TemplateTrack>(path, map);
 #ifdef MAPPER_USE_GDAL
-	else
-		t = std::make_unique<OgrTemplate>(path, map);
+	else if (GdalTemplate::canRead(path))
+		return std::make_unique<GdalTemplate>(path, map);
+	else if (OgrTemplate::canRead(path))
+		return std::make_unique<OgrTemplate>(path, map);
 #endif
 	
 	return t;
